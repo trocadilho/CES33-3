@@ -40,11 +40,15 @@ public class Logic {
 		return(Integer.parseInt(numSeg, 2));
 	}
 	
-	public int numQuadro(int[] tabPag, int numPag){
+	public int numQuadro(int[][] tabPag, int numPag){
 		return tabPag[numPag];
 	}
 	
-	public int byteSinalizado(int[][] memFis, int[] tabPag, int memVirt){
+	public int numSegmento(int[] tabDesc, int numDesc){
+		return tabDesc[numDesc];
+	}
+	
+	public int byteSinalizado(int[][][] memFis, int[] tabPag, int memVirt){
 		int numPag = numPag(memVirt);
 		int numDes = numDes(memVirt);
 		int numQuadro = numQuadro(tabPag, numPag);

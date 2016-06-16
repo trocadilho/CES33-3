@@ -29,15 +29,22 @@ public class Engine {
 		Logic Logica = new Logic();
 		ArrayList<tlb> TLB = new ArrayList<tlb>();
 		ArrayList<Integer> PageFIFO = new ArrayList<Integer>();
-		int[] tabPag = new int[256];
-		int[][] memFis = new int [128][256];
-		int numQuadro, endFisico, byteSinalizado;
+		int[] tabDesc = new int[4];
+		int[][] tabPag = new int[4][64];
+		int[][][] memFis = new int [4][128][256];
+		int numQuadro, endFisico, byteSinalizado, numSegmento;
 		int translatedAddresses = 0;
 		int PageFaults = 0;
+		int SegmentationFaults = 0;
 		int TLBHits = 0;
-		Arrays.fill(tabPag, -1);
-		for(int i=0; i<128; i++){
-			Arrays.fill(memFis[i], -1);
+		Arrays.fill(tabDesc, -1);
+		for(int i=0; i<4; i++){
+			Arrays.fill(tabPag[i], -1);
+		}
+		for(int i=0; i<4; i++){
+			for(int j=0; j<128; j++){
+				Arrays.fill(memFis[i][j], -1);
+			}
 		}
 		Charset charset = Charset.forName("US-ASCII");
 		Path addresses_path = Paths.get("addresses.txt");
@@ -46,11 +53,11 @@ public class Engine {
 			try (BufferedWriter writer = Files.newBufferedWriter(output_path, charset)){
 			    String line = null;
 			    while ((line = reader.readLine()) != null) {
-			    	translatedAddresses++;
+			    	numSegmento = translatedAddresses%4;
 			    	int memVirt = Integer.parseInt(line);
-			    	numQuadro = Logica.searchTlb(Logica.numPag(memVirt), TLB);
+			    	//numQuadro = Logica.searchTlb(Logica.numPag(memVirt), TLB);
 			    	//Página não se encontra na TLB:
-			    	if (numQuadro==-1){
+			    	/*if (numQuadro==-1){*/
 				    	numQuadro = Logica.numQuadro(tabPag, Logica.numPag(memVirt));
 				    	//PageFault:
 				    	if(numQuadro==-1){
@@ -73,18 +80,19 @@ public class Engine {
 				    			memFis[j][i] = fileContents[Logica.numPag(memVirt)*256 + i];
 				    		}
 				    	}
-				    	tlb tlbEntry = new tlb(Logica.numPag(memVirt), numQuadro);
+				    	//tlb tlbEntry = new tlb(Logica.numPag(memVirt), numQuadro);
 			    		
 				    	//Remove último elemento da lista tlb. Se LRU for true, o último elemento será o LRU. Caso contrário, será o first in (FIFO)
 			    		Logica.FIFO(tlbEntry, TLB);
-			    	}
+			    	/*}
 			    	else{
 			    		TLBHits++;	
-			    	}
+			    	}*/
 			    	endFisico = numQuadro*256+Logica.numDes(memVirt);
 			    	byteSinalizado = Logica.byteSinalizado(memFis, tabPag, memVirt);
 			    	String s = "Virtual address: " + memVirt + " Physical address: " + endFisico + " Value: " + byteSinalizado + "\n";
 			    	writer.write(s, 0, s.length());
+			    	translatedAddresses++;
 			    }
 			    writer.write("Number of Translated Addresses = " + translatedAddresses + "\n");
 			    writer.write("Page Faults = " + PageFaults + "\n");
