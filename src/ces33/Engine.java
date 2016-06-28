@@ -28,9 +28,12 @@ public class Engine {
 	    byte[] fileContents = test.read(INPUT_FILE_NAME);
 		Logic Logica = new Logic();
 		ArrayList<tlb> TLB = new ArrayList<tlb>();
-		ArrayList<Integer> PageFIFO = new ArrayList<Integer>();
+		ArrayList<Integer>[] PageFIFO = (ArrayList<Integer>[])new ArrayList[4];
+		for(int i=0;i<4;i++){
+			PageFIFO[i] = new ArrayList<Integer>();
+		}
 		int[] tabDesc = new int[4];
-		int[][] tabPag = new int[4][64];
+		int[][] tabPag = new int[4][256];
 		int[][][] memFis = new int [4][128][256];
 		int numQuadro, endFisico, byteSinalizado, numSegmento;
 		int translatedAddresses = 0;
@@ -48,53 +51,64 @@ public class Engine {
 		}
 		Charset charset = Charset.forName("US-ASCII");
 		Path addresses_path = Paths.get("addresses.txt");
-		Path output_path = Paths.get("saida.txt");
+		Path output_path = Paths.get("BrunoH_GabrielAmboss.txt");
 		try (BufferedReader reader = Files.newBufferedReader(addresses_path, charset)) {
 			try (BufferedWriter writer = Files.newBufferedWriter(output_path, charset)){
 			    String line = null;
 			    while ((line = reader.readLine()) != null) {
 			    	numSegmento = translatedAddresses%4;
 			    	int memVirt = Integer.parseInt(line);
-			    	//numQuadro = Logica.searchTlb(Logica.numPag(memVirt), TLB);
+			    	numQuadro = Logica.searchTlb(numSegmento, Logica.numPag(memVirt), TLB);
 			    	//Página não se encontra na TLB:
-			    	/*if (numQuadro==-1){*/
-				    	numQuadro = Logica.numQuadro(tabPag, Logica.numPag(memVirt));
+			    	if (numQuadro==-1){
+			    		//SegmentationFault:
+			    		if(tabDesc[numSegmento]==-1){
+			    			SegmentationFaults++;
+			    			tabDesc[numSegmento] = numSegmento;
+			    		}
+				    	numQuadro = Logica.numQuadro(tabPag, numSegmento, Logica.numPag(memVirt));
 				    	//PageFault:
 				    	if(numQuadro==-1){
 				    		PageFaults++;
 				    		int j, k;
-				    		for(j=0; j<128 && memFis[j][0]!=-1; j++);
+				    		for(j=0; j<128 && memFis[numSegmento][j][0]!=-1; j++);
 				    		if(j>=128){ //Memória real cheia
-				    			k = PageFIFO.get(0);
-				    			PageFIFO.remove(0);
-				    			numQuadro = tabPag[k];
-				    			tabPag[k] = -1;
+				    			k = PageFIFO[numSegmento].get(0);
+				    			PageFIFO[numSegmento].remove(0);
+				    			numQuadro = tabPag[numSegmento][k];
+				    			tabPag[numSegmento][k] = -1;
 				    			j = numQuadro;
+				    			for(int i=0; i< TLB.size(); i++){
+				    				if(TLB.get(i).getnumPag()==k){
+				    					TLB.remove(i);
+				    				}
+				    			}
 				    		}
 				    		else{
 				    			numQuadro = j;
 				    		}
-				    		tabPag[Logica.numPag(memVirt)] = numQuadro;
-				    		PageFIFO.add(Logica.numPag(memVirt));
+				    		tabPag[numSegmento][Logica.numPag(memVirt)] = numQuadro;
+				    		PageFIFO[numSegmento].add(Logica.numPag(memVirt));
 				    		for(int i=0; i<256; i++){
-				    			memFis[j][i] = fileContents[Logica.numPag(memVirt)*256 + i];
+				    			memFis[numSegmento][j][i] = fileContents[Logica.numPag(memVirt)*256 + i];
 				    		}
 				    	}
-				    	//tlb tlbEntry = new tlb(Logica.numPag(memVirt), numQuadro);
-			    		
+				    	tlb tlbEntry = new tlb(Logica.numPag(memVirt), numQuadro, numSegmento);
 				    	//Remove último elemento da lista tlb. Se LRU for true, o último elemento será o LRU. Caso contrário, será o first in (FIFO)
 			    		Logica.FIFO(tlbEntry, TLB);
-			    	/*}
+				    }
 			    	else{
 			    		TLBHits++;	
-			    	}*/
+			    	}
 			    	endFisico = numQuadro*256+Logica.numDes(memVirt);
-			    	byteSinalizado = Logica.byteSinalizado(memFis, tabPag, memVirt);
-			    	String s = "Virtual address: " + memVirt + " Physical address: " + endFisico + " Value: " + byteSinalizado + "\n";
+			    	byteSinalizado = Logica.byteSinalizado(memFis, tabPag, memVirt, numSegmento);
+			    	String s = "Virtual address: " + numSegmento + "-" + memVirt + " Physical address: " + numSegmento + "-" + endFisico + " Value: " + byteSinalizado + "\n";
 			    	writer.write(s, 0, s.length());
 			    	translatedAddresses++;
 			    }
 			    writer.write("Number of Translated Addresses = " + translatedAddresses + "\n");
+			    writer.write("Segmentation Faults = " + SegmentationFaults + "\n");
+			    writer.write("Segmentation Fault Rate = " + (float)SegmentationFaults/(float)translatedAddresses + "\n");
 			    writer.write("Page Faults = " + PageFaults + "\n");
 			    writer.write("Page Fault Rate = " + (float)PageFaults/(float)translatedAddresses + "\n");
 			    writer.write("TLB Hits = " + TLBHits + "\n");
@@ -103,6 +117,7 @@ public class Engine {
 	    		System.err.format("IOException: %s%n", x);
 		    }
 		} catch (IOException x) {
+			System.out.println("catch");
 		    System.err.format("IOException: %s%n", x);
 		}
 	}
